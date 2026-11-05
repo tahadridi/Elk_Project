@@ -1,0 +1,9 @@
+- pipeline.id: csv-ingest
+  path.config: "/usr/share/logstash/pipeline/csv.conf"
+  pipeline.ecs_compatibility: disabled
+- pipeline.id: json-ingest
+  path.config: "/usr/share/logstash/pipeline/json.conf"
+  pipeline.ecs_compatibility: disabled
+- pipeline.id: normalize
+  path.config: "/usr/share/logstash/pipeline/normalize.conf"
+  pipeline.ecs_compatibility: disabled

@@ -1,0 +1,18 @@
+{
+  "@timestamp": "2026-10-29T10:00:00Z",
+  "message": "Login failed for user admin",
+  "file_id": "sample0001",
+  "log": { "level": "WARNING" },
+  "service": { "name": "auth-service" },
+  "event": { "action": "login", "outcome": "failure", "dataset": "json" },
+  "user": { "name": "admin" },
+  "source": {
+    "ip": "203.0.113.10",
+    "geo": {
+      "country_name": "France",
+      "country_iso_code": "FR",
+      "city_name": "Paris",
+      "location": { "lat": 48.8566, "lon": 2.3522 }
+    }
+  }
+}
