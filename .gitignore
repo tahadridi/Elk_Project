@@ -10,3 +10,8 @@ data/input/*
 !data/input/.gitkeep
 *.log
 docs/
+infra/geoip/*.mmdb
+*.mmdb.gz
+*:Zone.Identifier
+backend/.coverage
+backend/htmlcov/

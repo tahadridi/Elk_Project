@@ -114,6 +114,38 @@ services:
       retries: 6
     networks: [backend]
 
+  webapp:
+    build:
+      context: ./backend
+    container_name: sm-webapp
+    env_file: .env
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/security_monitoring?authSource=admin
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - ELASTIC_URL=http://elasticsearch:9200
+      - LOGSTASH_URL=http://logstash:9600
+      - UPLOAD_DIR=/data/input
+      - GEOIP_DB_PATH=/data/geoip/GeoLite2-Country.mmdb
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data/input:/data/input
+      - ./infra/geoip:/data/geoip:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks: [frontend, backend]
+
 volumes:
   es_data:
   logstash_data:

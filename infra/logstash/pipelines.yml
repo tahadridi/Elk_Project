@@ -4,6 +4,9 @@
 - pipeline.id: json-ingest
   path.config: "/usr/share/logstash/pipeline/json.conf"
   pipeline.ecs_compatibility: disabled
+- pipeline.id: txt-ingest
+  path.config: "/usr/share/logstash/pipeline/txt.conf"
+  pipeline.ecs_compatibility: disabled
 - pipeline.id: normalize
   path.config: "/usr/share/logstash/pipeline/normalize.conf"
   pipeline.ecs_compatibility: disabled

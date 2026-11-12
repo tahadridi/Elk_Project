@@ -1,0 +1,13 @@
+Flask>=3.0,<4
+Flask-JWT-Extended>=4.6,<5
+pymongo>=4.6,<5
+redis>=5.0,<6
+elasticsearch>=8.13,<9
+bcrypt>=4.1,<5
+python-dotenv>=1.0,<2
+gunicorn>=21.2,<23
+geoip2>=4.8,<5
+pycountry>=23.12,<25
+pytest>=8,<9
+mongomock>=4.1,<5
+fakeredis>=2.23,<3

@@ -1,0 +1,639 @@
+openapi: 3.0.3
+info:
+  title: Security Monitoring API
+  version: 1.0.0
+  description: Sprint 3 backend API for authentication, upload, search and security settings.
+servers:
+  - url: http://localhost:8000
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Auth
+  - name: Admin
+  - name: Files
+  - name: Logs
+  - name: Stats
+paths:
+  /health:
+    get:
+      tags: [Health]
+      security: []
+      summary: Dependency-aware health check
+      responses:
+        "200":
+          description: Healthy or degraded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, down]
+                  checks:
+                    type: object
+                    additionalProperties: true
+        "503":
+          description: A critical dependency is down
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Authenticate and receive a JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Country policy denied the login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: IP temporarily blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Record a logout event
+      responses:
+        "200":
+          description: Logged out
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Return the current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Missing or invalid token
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List application users
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+        "403":
+          description: Admin role required
+    post:
+      tags: [Admin]
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [admin, analyst, user]
+      responses:
+        "201":
+          description: User created
+        "400":
+          description: Invalid user data
+  /api/v1/admin/users/{user_id}:
+    patch:
+      tags: [Admin]
+      summary: Update a user role, password or active flag
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [admin, analyst, user]
+                password:
+                  type: string
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: User updated
+    delete:
+      tags: [Admin]
+      summary: Deactivate a user
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User deactivated
+  /api/v1/admin/settings:
+    get:
+      tags: [Admin]
+      summary: Return all application settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    type: object
+                    additionalProperties: true
+  /api/v1/admin/settings/{section}:
+    put:
+      tags: [Admin]
+      summary: Update one settings section
+      parameters:
+        - name: section
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [auth, geo, uploads, search]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Updated settings and optional warnings
+        "400":
+          description: Invalid settings
+  /api/v1/admin/geo/countries:
+    get:
+      tags: [Admin]
+      summary: Return ISO country codes and names for the admin UI
+      responses:
+        "200":
+          description: Country list
+  /api/v1/admin/security-events:
+    get:
+      tags: [Admin]
+      summary: List security audit events
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: ip
+          in: query
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Security events
+  /api/v1/admin/ip-blocks:
+    get:
+      tags: [Admin]
+      summary: List temporary IP blocks
+      responses:
+        "200":
+          description: IP blocks
+    post:
+      tags: [Admin]
+      summary: Manually block an IP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ip]
+              properties:
+                ip:
+                  type: string
+                minutes:
+                  type: integer
+                  default: 15
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: IP blocked
+  /api/v1/admin/ip-blocks/{ip}:
+    delete:
+      tags: [Admin]
+      summary: Remove an IP block
+      parameters:
+        - name: ip
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: IP unblocked
+  /api/v1/files/preview:
+    post:
+      tags: [Files]
+      summary: Validate a file and preview the first 10 lines
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: File preview
+        "400":
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/files/upload:
+    post:
+      tags: [Files]
+      summary: Save a validated file for Logstash ingestion
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "202":
+          description: Upload accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FileMetadata"
+        "400":
+          description: Invalid file
+  /api/v1/files:
+    get:
+      tags: [Files]
+      summary: List uploaded files
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, completed, failed]
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json, txt]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [uploaded_at, size, status, original_name]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Paginated upload list
+  /api/v1/files/{file_id}:
+    get:
+      tags: [Files]
+      summary: Get upload metadata and ingestion status
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: refresh
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: File metadata
+        "404":
+          description: File not found
+  /api/v1/logs:
+    get:
+      tags: [Logs]
+      summary: Search security logs
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+        - name: service
+          in: query
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [date, level, service]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Paginated search results
+        "503":
+          description: Elasticsearch unavailable
+  /api/v1/logs/export:
+    get:
+      tags: [Logs]
+      summary: Export search results as CSV
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+        - name: service
+          in: query
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+  /api/v1/logs/{log_id}:
+    get:
+      tags: [Logs]
+      summary: Get one log document
+      parameters:
+        - name: log_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Log detail
+        "404":
+          description: Log not found
+  /api/v1/search/history:
+    get:
+      tags: [Logs]
+      summary: List the current user's search history
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Search history
+    delete:
+      tags: [Logs]
+      summary: Clear the current user's search history
+      responses:
+        "200":
+          description: History cleared
+  /api/v1/stats:
+    get:
+      tags: [Stats]
+      summary: Return dashboard KPIs
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+        "503":
+          description: Statistics unavailable
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, analyst, user]
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+    FileMetadata:
+      type: object
+      properties:
+        file_id:
+          type: string
+        original_name:
+          type: string
+        stored_name:
+          type: string
+        format:
+          type: string
+          enum: [csv, json, txt]
+        size:
+          type: integer
+        status:
+          type: string
+          enum: [queued, completed, failed]
+        log_count:
+          type: integer
+        expected_log_count:
+          type: integer
+        uploaded_by:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+    Stats:
+      type: object
+      properties:
+        stats:
+          type: object
+          properties:
+            total_logs:
+              type: integer
+            logs_today:
+              type: integer
+            error_logs:
+              type: integer
+            parse_errors:
+              type: integer
+            uploaded_files:
+              type: integer

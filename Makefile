@@ -9,7 +9,7 @@ GEN_ARGS ?= --count 2000 --days 3 --with-errors --seed 42
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down reset clean ps logs wait init kibana dashboard gen verify demo restart-logstash
+.PHONY: help setup up down reset clean ps logs wait init kibana dashboard gen verify demo restart-logstash api api-logs seed test
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -32,7 +32,7 @@ reset: ## Stop the stack and delete volumes + generated logs (full reset)
 	$(MAKE) clean
 
 clean: ## Delete generated input files
-	rm -f data/input/*.csv data/input/*.json
+	rm -f data/input/*.csv data/input/*.json data/input/*.txt
 
 ps: ## Show container status
 	$(COMPOSE) ps
@@ -68,6 +68,18 @@ verify: ## Verify the end-to-end ingestion
 restart-logstash: ## Restart Logstash to reload pipeline configuration
 	$(COMPOSE) restart logstash
 	@for i in $$(seq 1 60); do [ "$$(docker inspect -f '{{.State.Health.Status}}' sm-logstash 2>/dev/null)" = "healthy" ] && break; sleep 2; done
+
+api: ## Build and start the Flask API
+	$(COMPOSE) up -d --build webapp
+
+api-logs: ## Follow Flask API logs
+	$(COMPOSE) logs -f --tail=100 webapp
+
+seed: ## Create the default admin, analyst and user accounts
+	$(COMPOSE) exec webapp python seed.py
+
+test: ## Run the backend test suite inside the webapp container
+	$(COMPOSE) exec webapp pytest -q
 
 demo: up wait init kibana gen ## Full demo: start, configure, generate, verify
 	@echo "Waiting for Logstash to ingest the generated logs..."
